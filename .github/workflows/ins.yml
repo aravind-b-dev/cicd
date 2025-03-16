@@ -8,8 +8,8 @@ on:
       - master
 
 jobs:
-  build:
-    name: Build & Release
+  android-build:
+    name: Build & Release Android
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -34,6 +34,43 @@ jobs:
       - name: Build Android APK
         run: flutter build apk --release
 
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Push Android Build to Releases
+        if: github.event_name == 'push'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/flutter-apk/app-release.apk"
+          tag: v1.0.${{ github.run_number }}
+          token: ${{ secrets.TOKEN }}
+
+  ios-build:
+    name: Build & Release iOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          architecture: x64
+
+      - name: Install Dependencies
+        run: flutter pub get
+
       - name: Build iOS (No Code Signing)
         run: flutter build ios --no-codesign
 
@@ -44,17 +81,16 @@ jobs:
           mv Runner.app Payload/
           zip -r app.ipa Payload
 
-      - name: Upload Build Artifacts
+      - name: Upload iOS IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/ios/iphoneos/app.ipa
+          name: ios-ipa
+          path: build/ios/iphoneos/app.ipa
 
-      - name: Push to Releases
+      - name: Push iOS Build to Releases
+        if: github.event_name == 'push'
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/ios/iphoneos/app.ipa"
+          artifacts: "build/ios/iphoneos/app.ipa"
           tag: v1.0.${{ github.run_number }}
           token: ${{ secrets.TOKEN }}
